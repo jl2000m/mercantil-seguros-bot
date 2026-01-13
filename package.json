@@ -7,6 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "postinstall": "npx playwright install --with-deps chromium || true",
     "bot": "tsx src/index.ts",
     "bot:scrape": "tsx src/index.ts --scrape",
     "bot:intercept": "tsx src/intercept-api.ts",
