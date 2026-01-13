@@ -1,0 +1,299 @@
+	<header class="header navbar-fixed-top">
+
+    <div class="logo quote-w">
+        <a href="/as/viajesint/MRP022052">
+            <img alt="mercantil logo top" title="logo" src="/as/viajesint/app-website/img/logo_mercantil_100_negative.png">
+        </a>
+    </div>
+
+    <nav class="nav-menu">
+        <input type="checkbox" id="menuCheckbox">
+        <label for="menuCheckbox" class="menu-hamburger">
+            <span></span>
+        </label>
+
+        <ul class="main-menu" id="mainMenu">
+            <label for="menuCheckbox" class="menu-hamburger"> <span></span> </label>
+
+            <li class="language-bar">
+                <div class="dropdown">
+                    <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        Español
+                    </button>
+
+                    <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                        <button value="en"  core-container="control-language-button">Inglés</button>
+                        <button value="es" selected core-container="control-language-button">Español</button>
+                    </div>
+                </div>
+            </li>
+
+            
+                    </ul>
+
+        <label for="menuCheckbox" class="menu-screen-overlay">
+            <span></span>
+        </label>
+    </nav>
+
+</header><div class="section-white-heand">
+</div>
+<div role="main" class="main">
+	<section class="page-header">
+		<div class="container">
+			<div class="row align-items-center">
+				<div class="col-md-8 text-left">
+					<h1 class="font-weight-bold">Cotizar Seguro de Viaje</h1>
+				</div>
+
+				<div class="col-md-4">
+					<ul class="breadcrumb justify-content-start justify-content-md-end mb-0">
+						<li><a href="/as/viajesint/MRP022052">Home</a></li>
+						<li class="active">Cotizar Seguro de Viaje</li>
+					</ul>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<div id="quotation" class="container-fuid">
+        <div class="row">
+            <div id="form-quotations-list" class="container" data-plan="true">
+                <section id="team" class="section-padding-bottom section-team pb-0 mb-0">
+                    <div class="container-fluid">
+                        <div class="row row-inline row-justify">
+                        									<div class="info-box">
+									<div class="card">
+										<div class="card-body p-5">
+											<div class="icon-box mt-2">
+												<div class="icon-box-info-title text-center">
+													<h3 class="font-weight-bold mb-0">Tipo de Plan</h3>
+												</div>
+												<div class="icon-box-info d-block clear-both mt-2 text-center">
+													<p class="mb-0">
+														Viajes Por Día
+													</p>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+                        	
+															<input type="hidden" name="filters_passengers_count" value="<?php echo $result['filters']['passengers_count'] ?>">
+								<div class="info-box">
+									<div class="card">
+										<div class="card-body p-5">
+											<div class="icon-box mt-2">
+												<div class="icon-box-info-title text-center">
+													<h3 class="font-weight-bold mb-0">Pasajeros</h3>
+												</div>
+												<div class="icon-box-info d-block clear-both mt-2 text-center">
+													<p class="mb-0">
+														1
+													</p>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							
+															<div class="info-box">
+									<div class="card">
+										<div class="card-body p-5">
+											<div class="icon-box mt-2">
+												<div class="icon-box-info-title text-center">
+													<h3 class="font-weight-bold mb-0">Origen</h3>
+												</div>
+												<div class="icon-box-info d-block clear-both mt-2 text-center">
+													<p class="mb-0">
+														Afghanistán
+													</p>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							
+															<div class="info-box">
+									<div class="card">
+										<div class="card-body p-5">
+											<div class="icon-box mt-2">
+												<div class="icon-box-info-title text-center">
+													<h3 class="font-weight-bold mb-0">Destino</h3>
+												</div>
+												<div class="icon-box-info d-block clear-both mt-2 text-center">
+													<p class="mb-0">
+														Europa
+													</p>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							
+															<div class="info-box">
+									<div class="card">
+										<div class="card-body p-5">
+											<div class="icon-box mt-2">
+												<div class="icon-box-info-title text-center">
+													<h3 class="font-weight-bold mb-0">Inicio</h3>
+												</div>
+												<div class="icon-box-info d-block clear-both mt-2 text-center">
+													<p class="mb-0">
+														13/01/2026
+													<
+
+...
+
+>
+                        	        <div class="section-title">
+                        	            <p class="section-title-p">
+                        	                Seleccione el plan que se ajuste a sus necesidades
+                        	            </p>
+                        	        </div>
+                        	    </div>
+                        	                        </div>
+                    </div>
+                </section>
+            </div>
+
+			
+						    <div class="col-md-12 row-justify " data-plan="true">
+				    				        <div class="section-title" data-plan="true">
+				            <p class="section-title-p">
+				                No existen resultados para su búsqueda
+				            </p>
+				        </div>
+				    				</div>
+
+							
+					    <div class="col-md-12" id="container-quote">
+		        <section id="team" class="section-padding-bottom section-team pd0">
+		            <div class="container">
+		                <div class="row">
+		                    <div class="col-md-12 collapse position-collapse " style="margin-top: 30px; padding:0px 15px; margin-bottom:30px;">
+		                    			                    </div>
+		                </div>
+		            </div>
+		        </section>
+		    </div>
+        </div>
+	</div>
+</div>
+
+<style type="text/css">
+    .item-block {max-width: 260px}
+</style>
+
+	<div id="loading">
+	<div>
+	<img src="/as/viajesint/app-website/img/loading.png">
+	</div>
+	<p></p>
+</div>
+
+<style type="text/css">
+	#loading {
+		display: none;
+		position: fixed;
+	    top: 0;
+	    left: 0;
+	    bottom: 0;
+	    right: 0;
+	    background: rgba(0,0,0,0.8);
+	    z-index: 9999999999999999;
+	}
+
+	#loading div{
+		height: 100%;
+	    display: flex;
+	    align-items: center;
+	    justify-content: center;
+	    transition: all .3s ease;
+	}
+
+	#loading img {
+		width: 50px;
+		margin: auto;
+	    position: absolute;
+	    top: 0;
+	    right: 0;
+	    left: 0;
+	    bottom: 0;
+	}
+
+	#loading p {
+		position: absolute;
+	    top: 0;
+	    bottom: 0;
+	    left: 0;
+	    right: 0;
+	    margin: auto;
+	    height: 50px;
+	    width: 100%;
+	    text-align: center;
+	    color: white;
+	    padding-top: 75px;
+	    font-size: 15px;
+	    font-weight: bolder;
+	}
+
+	#loading div::before {
+	    content: "";
+	    position: absolute;
+	    border: 5px solid #00549a;
+	    width: 75px;
+	    height: 75px;
+	    border-radius: 50%;
+	    box-sizing: border-box;
+	    border-left: 5px solid #db5e0c;
+	    border-top: 5px solid #db5e0c;
+	    animation: rotarload 1s linear infinite;
+	    transform: rotate(0deg);
+	  }
+  @keyframes rotarload {
+      0%   {transform: rotate(0deg)}
+      100% {transform: rotate(360deg)}
+  }
+</style>
+
+<footer class="footer">
+    <ul class="social-btns">
+        <li><a target="_blank" href="https://twitter.com/MercantilSegPA" class="sprite icon-twitter-logo"></a></li>
+        <li><a target="_blank" href="https://www.instagram.com/mercantilpanama/" class="sprite icon-instagram-logo"></a></li>
+        <li><a target="_blank" href="https://www.facebook.com/Mercantil-Seguros-Panam%C3%A1-402295643255906" class="sprite icon-facebook-logo"></a></li>
+        <li><a target="_blank" href="https://www.youtube.com/channel/UCczIdbwwsetVp7o3AQEdW9w" class="sprite icon-youtube-logo"></a></li>
+    </ul>
+    <hr>
+
+    <div class="content hidden">
+        <div class="logo"> <img alt="mercantil logo" title="logo" src="/as/viajesint/app-website/img/logo_mercantil_100.png" style="width: 200px"> </div>
+        <div class="sitemap">
+            <h3><a class="sitemap-link" href="https://www.mercantilseguros.com.pa/mapadelsitio.html" target="_blank">Mapa del Sitio</a></h3>
+			<h3><a class="sitemap-link" href="https://www.mercantilseguros.com.pa/reclamos.html" target="_blank">Reclamos</a></h3>
+            <h3>Contáctanos</h3>
+            <p>+507 3041150</p>
+            <h3>Mensajería Whatsapp</h3>
+            <p>+507 63830380</p>
+        </div>
+        <div class="contacto">
+            <h4 class="mb-3">Centro Atención Mercantil Seguros Panamá</h4>
+            <h4>Internacional:</h4>
+            <p>+507 8510886</p>
+            <h4>Desde Venezuela:</h4>
+            <p>+58 212 9185700</p>
+            <p>atencion_al_cliente@mercantilsegurospanama.com</p>
+        </div>
+        <div class="ubicanos">
+            <h3><span class="sprite icon-ubicanos"></span>Ubícanos</h3>
+            <p>Edificio Sede de Mercantil Seguros.</p>
+            <p>Calle Punta Darién, Torres de las Américas, Torre A, piso 14 Urb. Punta Pacífica Ciudad de Panamá, Panamá.</p>
+        </div>
+    </div>
+
+    <p class="legal" style="margin-bottom:0">
+		<img alt="SSAP" title="Superintendencia de Seguros y Reaseguros de Panamá" src="/as/viajesint/app-website/img/logo-ssap.png">
+		Regulado y supervisado por la Superintendencia de Seguros y Reaseguros de Panamá.
+	</p>
+    <p class="legal" style="margin-top:12px"><a href="https://www.mercantilseguros.com.pa/pdf/terminos_y_politicas_Mercantil_Seguros_pa.pdf" target="_blank">Términos y condiciones</a></p>
+</footer>
