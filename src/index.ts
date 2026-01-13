@@ -1,5 +1,5 @@
 import { chromium, Browser, Page } from 'playwright';
-import { QuoteConfig, QuoteResult, CatalogData, CatalogOption } from './types';
+import { QuoteConfig, QuoteResult, CatalogData, CatalogOption, PurchaseFormData, PurchaseFormResult } from './types';
 import { defaultConfig, QUOTE_URL, SELECTORS } from './config';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -445,6 +445,217 @@ class MercantilSegurosBot {
     }
 
     return availableDestinations;
+  }
+
+  async clickComprarAndScrapeForm(planIndex: number = 0): Promise<PurchaseFormResult> {
+    if (!this.page) {
+      throw new Error('Bot not initialized. Call initialize() first.');
+    }
+
+    try {
+      console.log(`🛒 Buscando botón COMPRAR para el plan ${planIndex + 1}...`);
+
+      // Wait for quote cards to be visible
+      await this.page.waitForSelector('.item-block', { state: 'visible', timeout: 10000 });
+
+      // Find all COMPRAR buttons
+      const comprarButtons = await this.page.locator('button, a, input[type="submit"]')
+        .filter({ hasText: /COMPRAR/i })
+        .all();
+
+      console.log(`📋 Encontrados ${comprarButtons.length} botones COMPRAR`);
+
+      if (comprarButtons.length === 0) {
+        throw new Error('No se encontraron botones COMPRAR');
+      }
+
+      if (planIndex >= comprarButtons.length) {
+        throw new Error(`El índice ${planIndex} está fuera de rango. Solo hay ${comprarButtons.length} botones.`);
+      }
+
+      const targetButton = comprarButtons[planIndex];
+      const buttonText = await targetButton.textContent();
+      console.log(`✅ Botón encontrado: ${buttonText?.trim()}`);
+
+      // Capture before state
+      const beforeURL = this.page.url();
+      console.log(`📍 URL actual: ${beforeURL}`);
+
+      // Take screenshot before clicking
+      const screenshotDir = path.join(process.cwd(), 'screenshots');
+      if (!fs.existsSync(screenshotDir)) {
+        fs.mkdirSync(screenshotDir, { recursive: true });
+      }
+      const screenshotBeforePath = path.join(screenshotDir, `purchase-before-${Date.now()}.png`);
+      await this.page.screenshot({ path: screenshotBeforePath, fullPage: true });
+
+      // Click the button
+      console.log(`🖱️ Haciendo clic en COMPRAR...`);
+      
+      // Wait for navigation or form to appear
+      const [response] = await Promise.all([
+        this.page.waitForResponse(
+          (response) => response.status() === 200 || response.status() === 302,
+          { timeout: 30000 }
+        ).catch(() => null),
+        targetButton.click(),
+      ]);
+
+      // Wait for page to load or form to appear
+      console.log(`⏳ Esperando a que se cargue el formulario de compra...`);
+      
+      try {
+        // Wait for either URL change or form to appear
+        await Promise.race([
+          this.page.waitForURL((url) => url.toString() !== beforeURL, { timeout: 10000 }),
+          this.page.waitForSelector('form', { timeout: 10000 }),
+        ]);
+      } catch (error) {
+        console.warn('⚠️ Timeout esperando el formulario, continuando...');
+      }
+
+      // Additional wait for content to load
+      await this.page.waitForTimeout(2000);
+
+      // Capture after state
+      const afterURL = this.page.url();
+      const html = await this.page.content();
+      console.log(`📍 Nueva URL: ${afterURL}`);
+      console.log(`📄 HTML capturado: ${html.length} bytes`);
+
+      // Take screenshot after clicking
+      const screenshotAfterPath = path.join(screenshotDir, `purchase-after-${Date.now()}.png`);
+      await this.page.screenshot({ path: screenshotAfterPath, fullPage: true });
+      console.log(`📸 Screenshot guardado: ${screenshotAfterPath}`);
+
+      // Extract forms
+      const forms = await this.page.locator('form').all();
+      console.log(`📋 Formularios encontrados: ${forms.length}`);
+
+      const purchaseForms = [];
+      for (let i = 0; i < forms.length; i++) {
+        const form = forms[i];
+        const formId = await form.getAttribute('id');
+        const formAction = await form.getAttribute('action');
+        const formMethod = await form.getAttribute('method') || 'GET';
+
+        console.log(`\n📝 Formulario ${i + 1}:`);
+        console.log(`   ID: ${formId || 'sin ID'}`);
+        console.log(`   Action: ${formAction || 'sin action'}`);
+        console.log(`   Method: ${formMethod}`);
+
+        // Extract all input fields
+        const inputs = await form.locator('input, select, textarea').all();
+        const fields = [];
+
+        for (const input of inputs) {
+          const tagName = await input.evaluate((el) => el.tagName.toLowerCase());
+          const type = await input.getAttribute('type');
+          const name = await input.getAttribute('name');
+          const id = await input.getAttribute('id');
+          const placeholder = await input.getAttribute('placeholder');
+          const required = await input.evaluate((el) => (el as HTMLInputElement).required);
+          const value = await input.getAttribute('value') || await input.inputValue().catch(() => null);
+
+          // Try to find label
+          let label: string | null = null;
+          try {
+            const labelElement = await input.evaluateHandle((el) => {
+              const id = el.id;
+              if (id) {
+                const label = document.querySelector(`label[for="${id}"]`);
+                if (label) return label;
+              }
+              // Check if parent is a label
+              if (el.parentElement?.tagName === 'LABEL') {
+                return el.parentElement;
+              }
+              // Check previous sibling
+              if (el.previousElementSibling?.tagName === 'LABEL') {
+                return el.previousElementSibling;
+              }
+              return null;
+            });
+
+            if (labelElement) {
+              const labelText = await labelElement.evaluate((el) => el?.textContent?.trim() || null);
+              label = labelText;
+            }
+          } catch (error) {
+            // Label not found, continue
+          }
+
+          // Get options for select elements
+          let options: Array<{ value: string; text: string }> | null = null;
+          if (tagName === 'select') {
+            const optionElements = await input.locator('option').all();
+            options = [];
+            for (const option of optionElements) {
+              const optionValue = await option.getAttribute('value');
+              const optionText = await option.textContent();
+              if (optionValue !== null && optionText) {
+                options.push({
+                  value: optionValue,
+                  text: optionText.trim(),
+                });
+              }
+            }
+          }
+
+          fields.push({
+            tag: tagName,
+            type: type || null,
+            name: name || null,
+            id: id || null,
+            placeholder: placeholder || null,
+            label: label,
+            required: required,
+            value: value,
+            options: options,
+          });
+        }
+
+        console.log(`   Campos: ${fields.length}`);
+
+        purchaseForms.push({
+          index: i,
+          id: formId,
+          action: formAction,
+          method: formMethod,
+          fields: fields,
+        });
+      }
+
+      const purchaseFormData: PurchaseFormData = {
+        url: afterURL,
+        html: html,
+        forms: purchaseForms,
+      };
+
+      return {
+        success: true,
+        purchaseFormData,
+        screenshotPath: screenshotAfterPath,
+      };
+    } catch (error) {
+      console.error('❌ Error al hacer clic en COMPRAR y capturar formulario:', error);
+
+      // Take error screenshot
+      const screenshotDir = path.join(process.cwd(), 'screenshots');
+      if (!fs.existsSync(screenshotDir)) {
+        fs.mkdirSync(screenshotDir, { recursive: true });
+      }
+      const errorScreenshotPath = path.join(screenshotDir, `purchase-error-${Date.now()}.png`);
+      if (this.page) {
+        await this.page.screenshot({ path: errorScreenshotPath, fullPage: true });
+      }
+
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+        screenshotPath: errorScreenshotPath,
+      };
+    }
   }
 
   async close(): Promise<void> {

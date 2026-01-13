@@ -9,7 +9,7 @@ export default function Home() {
   const router = useRouter();
   const [catalog, setCatalog] = useState<CatalogData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState<Partial<QuoteConfig & { tripTypeValue: string }>>({
+  const [formData, setFormData] = useState<Partial<Omit<QuoteConfig, 'ages'> & { tripTypeValue: string; ages?: string[] }>>({
     tripType: 'Viajes Por Día',
     tripTypeValue: 'Viajes Por Día',
     passengers: 1,
@@ -108,10 +108,11 @@ export default function Home() {
 
     try {
       // Enviar tripTypeValue en lugar de tripType a la API
-      const { tripTypeValue, ...dataToSend } = formData;
+      const { tripTypeValue, ages, ...dataToSend } = formData;
       const payload = {
         ...dataToSend,
         tripType: tripTypeValue || formData.tripType,
+        ages: (ages || []).map(age => typeof age === 'string' ? parseInt(age, 10) : age),
         agent: '2851', // Siempre usar Risk Management
       };
       

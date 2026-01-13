@@ -214,11 +214,209 @@
     return data;
   };
 
+  // Función para hacer clic en COMPRAR y capturar el formulario de compra
+  window.clickComprarAndScrape = async function(planIndex = 0) {
+    console.log(`\n🛒 Buscando botón COMPRAR para el plan ${planIndex + 1}...`);
+    
+    // Buscar todos los botones COMPRAR
+    const comprarButtons = Array.from(document.querySelectorAll('button, a, input[type="submit"]'))
+      .filter(el => {
+        const text = el.textContent?.trim() || el.value?.trim() || '';
+        return text.toUpperCase().includes('COMPRAR');
+      });
+    
+    console.log(`📋 Encontrados ${comprarButtons.length} botones COMPRAR`);
+    
+    if (comprarButtons.length === 0) {
+      console.error('❌ No se encontraron botones COMPRAR');
+      return null;
+    }
+    
+    if (planIndex >= comprarButtons.length) {
+      console.error(`❌ El índice ${planIndex} está fuera de rango. Solo hay ${comprarButtons.length} botones.`);
+      return null;
+    }
+    
+    const targetButton = comprarButtons[planIndex];
+    console.log(`✅ Botón encontrado:`, targetButton);
+    console.log(`   Texto: ${targetButton.textContent || targetButton.value}`);
+    console.log(`   Clases: ${targetButton.className}`);
+    console.log(`   ID: ${targetButton.id}`);
+    
+    // Capturar el HTML antes de hacer clic
+    const beforeHTML = document.documentElement.outerHTML;
+    const beforeURL = window.location.href;
+    
+    console.log(`\n📍 URL actual: ${beforeURL}`);
+    console.log(`📄 Tamaño del HTML actual: ${beforeHTML.length} bytes`);
+    
+    // Hacer clic en el botón
+    console.log(`\n🖱️ Haciendo clic en COMPRAR...`);
+    targetButton.click();
+    
+    // Esperar a que la página cambie o se cargue el formulario
+    console.log(`⏳ Esperando a que se cargue el formulario de compra...`);
+    
+    // Esperar hasta 10 segundos para que cambie la URL o aparezca un formulario
+    let attempts = 0;
+    const maxAttempts = 50; // 10 segundos (50 * 200ms)
+    
+    return new Promise((resolve) => {
+      const checkInterval = setInterval(() => {
+        attempts++;
+        const currentURL = window.location.href;
+        const currentHTML = document.documentElement.outerHTML;
+        
+        // Verificar si cambió la URL
+        if (currentURL !== beforeURL) {
+          clearInterval(checkInterval);
+          console.log(`✅ URL cambió a: ${currentURL}`);
+          console.log(`📄 Nuevo HTML: ${currentHTML.length} bytes`);
+          
+          // Buscar formularios en la nueva página
+          const forms = document.querySelectorAll('form');
+          console.log(`📋 Formularios encontrados: ${forms.length}`);
+          
+          forms.forEach((form, i) => {
+            console.log(`\n📝 Formulario ${i + 1}:`);
+            console.log(`   ID: ${form.id || 'sin ID'}`);
+            console.log(`   Action: ${form.action || 'sin action'}`);
+            console.log(`   Method: ${form.method || 'GET'}`);
+            console.log(`   Campos: ${form.querySelectorAll('input, select, textarea').length}`);
+          });
+          
+          // Capturar todos los campos del formulario
+          const formData = {
+            url: currentURL,
+            html: currentHTML,
+            forms: Array.from(forms).map((form, i) => {
+              const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
+              return {
+                index: i,
+                id: form.id || null,
+                action: form.action || null,
+                method: form.method || 'GET',
+                fields: inputs.map(input => {
+                  const tagName = input.tagName.toLowerCase();
+                  return {
+                    tag: tagName,
+                    type: input.type || null,
+                    name: input.name || null,
+                    id: input.id || null,
+                    placeholder: input.placeholder || null,
+                    label: input.labels?.[0]?.textContent?.trim() || 
+                           (input.closest('label')?.textContent?.trim()) ||
+                           (input.previousElementSibling?.tagName === 'LABEL' ? 
+                            input.previousElementSibling.textContent?.trim() : null) ||
+                           null,
+                    required: input.required || false,
+                    value: input.value || null,
+                    options: tagName === 'select' ? 
+                      Array.from(input.options).map(opt => ({
+                        value: opt.value,
+                        text: opt.textContent?.trim()
+                      })) : null,
+                  };
+                }),
+              };
+            }),
+          };
+          
+          resolve(formData);
+          return;
+        }
+        
+        // Verificar si apareció un nuevo formulario (sin cambio de URL)
+        const newForms = document.querySelectorAll('form');
+        if (newForms.length > 0 && attempts > 5) {
+          // Dar un poco más de tiempo para que se cargue completamente
+          if (attempts > 10) {
+            clearInterval(checkInterval);
+            console.log(`✅ Formulario detectado en la misma página`);
+            console.log(`📄 HTML actualizado: ${currentHTML.length} bytes`);
+            
+            const formData = {
+              url: currentURL,
+              html: currentHTML,
+              forms: Array.from(newForms).map((form, i) => {
+                const inputs = Array.from(form.querySelectorAll('input, select, textarea'));
+                return {
+                  index: i,
+                  id: form.id || null,
+                  action: form.action || null,
+                  method: form.method || 'GET',
+                  fields: inputs.map(input => {
+                    const tagName = input.tagName.toLowerCase();
+                    return {
+                      tag: tagName,
+                      type: input.type || null,
+                      name: input.name || null,
+                      id: input.id || null,
+                      placeholder: input.placeholder || null,
+                      label: input.labels?.[0]?.textContent?.trim() || 
+                             (input.closest('label')?.textContent?.trim()) ||
+                             (input.previousElementSibling?.tagName === 'LABEL' ? 
+                              input.previousElementSibling.textContent?.trim() : null) ||
+                             null,
+                      required: input.required || false,
+                      value: input.value || null,
+                      options: tagName === 'select' ? 
+                        Array.from(input.options).map(opt => ({
+                          value: opt.value,
+                          text: opt.textContent?.trim()
+                        })) : null,
+                    };
+                  }),
+                };
+              }),
+            };
+            
+            resolve(formData);
+            return;
+          }
+        }
+        
+        if (attempts >= maxAttempts) {
+          clearInterval(checkInterval);
+          console.warn(`⚠️ Timeout esperando el formulario. URL actual: ${currentURL}`);
+          resolve({
+            url: currentURL,
+            html: currentHTML,
+            forms: [],
+            error: 'Timeout esperando el formulario de compra',
+          });
+        }
+      }, 200);
+    });
+  };
+
+  // Función para exportar datos del formulario de compra
+  window.exportPurchaseForm = function(formData) {
+    if (!formData) {
+      console.error('❌ No hay datos del formulario para exportar');
+      return;
+    }
+    
+    const blob = new Blob([JSON.stringify(formData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `purchase-form-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    console.log('💾 Datos del formulario exportados!');
+    return formData;
+  };
+
   console.log('✅ Interceptor activado!\n');
   console.log('📝 Instrucciones:');
   console.log('   1. Llena el formulario');
   console.log('   2. Haz clic en "COTIZAR SEGURO"');
   console.log('   3. Ejecuta: getNetworkSummary()');
-  console.log('   4. Para exportar: exportNetworkData()\n');
+  console.log('   4. Para exportar: exportNetworkData()');
+  console.log('\n🛒 Para hacer clic en COMPRAR y capturar el formulario:');
+  console.log('   1. Ejecuta: clickComprarAndScrape(0) // 0 = primer plan, 1 = segundo, etc.');
+  console.log('   2. Para exportar: exportPurchaseForm(resultado)\n');
 })();
 

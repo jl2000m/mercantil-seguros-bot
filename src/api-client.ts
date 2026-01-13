@@ -289,12 +289,12 @@ export class MercantilSegurosAPIClient {
         );
         
         // Extract plan name from h3
-        const nameMatch = planHtml.match(/<h3[^>]*class="[^"]*font-weight-bold[^"]*"[^>]*>([\s\S]*?)<\/h3>/);
+        let nameMatch = planHtml.match(/<h3[^>]*class="[^"]*font-weight-bold[^"]*"[^>]*>([\s\S]*?)<\/h3>/);
         if (!nameMatch) {
           // Try without class requirement
           const nameMatch2 = planHtml.match(/<h3[^>]*>([\s\S]*?)<\/h3>/);
           if (!nameMatch2) continue;
-          var nameMatch = nameMatch2;
+          nameMatch = nameMatch2;
         }
 
         // Extract price

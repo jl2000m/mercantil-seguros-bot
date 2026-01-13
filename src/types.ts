@@ -45,3 +45,37 @@ export interface CatalogData {
   agents: CatalogOption[];
 }
 
+export interface PurchaseFormField {
+  tag: string;
+  type: string | null;
+  name: string | null;
+  id: string | null;
+  placeholder: string | null;
+  label: string | null;
+  required: boolean;
+  value: string | null;
+  options?: Array<{ value: string; text: string }> | null;
+}
+
+export interface PurchaseForm {
+  index: number;
+  id: string | null;
+  action: string | null;
+  method: string;
+  fields: PurchaseFormField[];
+}
+
+export interface PurchaseFormData {
+  url: string;
+  html: string;
+  forms: PurchaseForm[];
+  error?: string;
+}
+
+export interface PurchaseFormResult {
+  success: boolean;
+  purchaseFormData?: PurchaseFormData;
+  error?: string;
+  screenshotPath?: string;
+}
+

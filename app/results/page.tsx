@@ -7,6 +7,7 @@ import { QuoteResult, QuotePlan } from '../../src/types';
 export default function ResultsPage() {
   const router = useRouter();
   const [quoteResult, setQuoteResult] = useState<QuoteResult | null>(null);
+  const [loadingPurchase, setLoadingPurchase] = useState<number | null>(null);
 
   useEffect(() => {
     const stored = sessionStorage.getItem('quoteResult');
@@ -25,6 +26,44 @@ export default function ResultsPage() {
   const handleNewQuote = () => {
     sessionStorage.removeItem('quoteResult');
     router.push('/');
+  };
+
+  const handleComprar = async (planIndex: number) => {
+    setLoadingPurchase(planIndex);
+    
+    try {
+      // Get the quote config from sessionStorage if available
+      const storedQuote = sessionStorage.getItem('quoteResult');
+      const quoteConfig = storedQuote ? JSON.parse(storedQuote) : null;
+      
+      const response = await fetch('/api/purchase-form', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planIndex,
+          quoteConfig: quoteConfig?.quoteData ? {
+            // We need to reconstruct the config from the quote result
+            // For now, we'll let the API handle it
+          } : null,
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (result.success && result.purchaseFormData) {
+        // Store purchase form data and navigate to purchase page
+        sessionStorage.setItem('purchaseFormData', JSON.stringify(result.purchaseFormData));
+        sessionStorage.setItem('selectedPlanIndex', planIndex.toString());
+        router.push('/purchase');
+      } else {
+        alert(`Error: ${result.error || 'No se pudo obtener el formulario de compra'}`);
+      }
+    } catch (error) {
+      console.error('Error al obtener formulario de compra:', error);
+      alert('Error al obtener el formulario de compra. Por favor, intente de nuevo.');
+    } finally {
+      setLoadingPurchase(null);
+    }
   };
 
   if (!quoteResult) {
@@ -61,6 +100,24 @@ export default function ResultsPage() {
                       <div style={{ fontSize: '0.875rem', opacity: 0.9, marginTop: '0.5rem' }}>
                         ID del Plan: {plan.planId}
                       </div>
+                      <button
+                        onClick={() => handleComprar(index)}
+                        disabled={loadingPurchase === index}
+                        style={{
+                          marginTop: '1rem',
+                          width: '100%',
+                          padding: '0.75rem',
+                          backgroundColor: loadingPurchase === index ? '#ccc' : '#28a745',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: loadingPurchase === index ? 'not-allowed' : 'pointer',
+                          fontSize: '1rem',
+                          fontWeight: 'bold',
+                        }}
+                      >
+                        {loadingPurchase === index ? 'Cargando...' : 'COMPRAR'}
+                      </button>
                     </div>
                   ))}
                 </div>
