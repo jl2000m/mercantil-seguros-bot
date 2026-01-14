@@ -55,6 +55,7 @@ export interface PurchaseFormField {
   required: boolean;
   value: string | null;
   options?: Array<{ value: string; text: string }> | null;
+  dataPremium?: string | null; // For rider checkboxes, stores the premium amount from data-premium attribute
 }
 
 export interface PurchaseForm {
