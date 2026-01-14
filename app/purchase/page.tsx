@@ -2,20 +2,28 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { PurchaseFormData, PurchaseFormField } from '../../src/types';
+import { PurchaseFormData, PurchaseFormField, QuotePlan } from '../../src/types';
 
 export default function PurchasePage() {
   const router = useRouter();
   const [purchaseFormData, setPurchaseFormData] = useState<PurchaseFormData | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<QuotePlan | null>(null);
   const [formValues, setFormValues] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const stored = sessionStorage.getItem('purchaseFormData');
+    const storedPlan = sessionStorage.getItem('selectedPlan');
+    
     if (stored) {
       try {
         const data = JSON.parse(stored) as PurchaseFormData;
         setPurchaseFormData(data);
+        
+        if (storedPlan) {
+          const plan = JSON.parse(storedPlan) as QuotePlan;
+          setSelectedPlan(plan);
+        }
         
         // Initialize form values with default values from fields
         const initialValues: Record<string, string> = {};
@@ -36,10 +44,12 @@ export default function PurchasePage() {
     }
   }, [router]);
 
-  const handleInputChange = (name: string, value: string) => {
+  const handleInputChange = (fieldName: string, value: string, actualFieldName?: string) => {
+    // Use actualFieldName if provided (for proper form submission), otherwise use fieldName
+    const key = actualFieldName || fieldName;
     setFormValues((prev) => ({
       ...prev,
-      [name]: value,
+      [key]: value,
     }));
   };
 
@@ -55,7 +65,13 @@ export default function PurchasePage() {
       const formData = new FormData();
       form.fields.forEach((field) => {
         if (field.name) {
-          const value = formValues[field.name] || field.value || '';
+          let value = formValues[field.name] || field.value || '';
+          
+          // Handle checkboxes - if not in formValues, use empty string for unchecked
+          if (field.type === 'checkbox' && !formValues[field.name]) {
+            value = '';
+          }
+          
           formData.append(field.name, value);
         }
       });
@@ -92,20 +108,32 @@ export default function PurchasePage() {
 
   const renderField = (field: PurchaseFormField, formIndex: number) => {
     const fieldKey = field.name || field.id || `field-${formIndex}-${field.tag}`;
-    const value = formValues[fieldKey] || field.value || '';
+    const value = formValues[field.name || fieldKey] || field.value || '';
+
+    // Skip hidden fields in the main display (they'll be included in form submission)
+    if (field.type === 'hidden') {
+      return (
+        <input
+          key={fieldKey}
+          type="hidden"
+          name={field.name || undefined}
+          value={value}
+        />
+      );
+    }
 
     switch (field.tag) {
       case 'input':
         if (field.type === 'checkbox' || field.type === 'radio') {
           return (
-            <div key={fieldKey} style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div key={fieldKey} style={{ marginBottom: '0.75rem' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                 <input
                   type={field.type}
                   name={field.name || undefined}
                   id={field.id || undefined}
-                  checked={!!value}
-                  onChange={(e) => handleInputChange(fieldKey, e.target.checked ? '1' : '0')}
+                  checked={!!value || (field.type === 'checkbox' && value === '1')}
+                  onChange={(e) => handleInputChange(fieldKey, e.target.checked ? '1' : '0', field.name || undefined)}
                   required={field.required}
                 />
                 <span>{field.label || field.placeholder || field.name}</span>
@@ -125,7 +153,7 @@ export default function PurchasePage() {
               id={field.id || undefined}
               placeholder={field.placeholder || undefined}
               value={value}
-              onChange={(e) => handleInputChange(fieldKey, e.target.value)}
+              onChange={(e) => handleInputChange(fieldKey, e.target.value, field.name || undefined)}
               required={field.required}
               style={{
                 width: '100%',
@@ -149,7 +177,7 @@ export default function PurchasePage() {
               name={field.name || undefined}
               id={field.id || undefined}
               value={value}
-              onChange={(e) => handleInputChange(fieldKey, e.target.value)}
+              onChange={(e) => handleInputChange(fieldKey, e.target.value, field.name || undefined)}
               required={field.required}
               style={{
                 width: '100%',
@@ -180,7 +208,7 @@ export default function PurchasePage() {
               id={field.id || undefined}
               placeholder={field.placeholder || undefined}
               value={value}
-              onChange={(e) => handleInputChange(fieldKey, e.target.value)}
+              onChange={(e) => handleInputChange(fieldKey, e.target.value, field.name || undefined)}
               required={field.required}
               rows={4}
               style={{
@@ -224,17 +252,68 @@ export default function PurchasePage() {
     );
   }
 
+  // Find the main purchase form (usually the first one with many fields)
+  const mainForm = purchaseFormData.forms.find(form => 
+    form.fields.length > 50 && form.action?.includes('/buy/step-one')
+  ) || purchaseFormData.forms[0];
+
+  // Group fields by passenger if they contain passenger data
+  const groupFieldsByPassenger = (fields: PurchaseFormField[]) => {
+    const groups: { [key: string]: PurchaseFormField[] } = {};
+    const otherFields: PurchaseFormField[] = [];
+    
+    fields.forEach(field => {
+      if (field.name?.includes('[breakdowns]')) {
+        const match = field.name.match(/\[breakdowns\]\[(\d+)\]/);
+        if (match) {
+          const passengerIndex = match[1];
+          if (!groups[passengerIndex]) {
+            groups[passengerIndex] = [];
+          }
+          groups[passengerIndex].push(field);
+        } else {
+          otherFields.push(field);
+        }
+      } else if (field.name?.includes('[contact]')) {
+        if (!groups['contact']) {
+          groups['contact'] = [];
+        }
+        groups['contact'].push(field);
+      } else {
+        otherFields.push(field);
+      }
+    });
+    
+    return { groups, otherFields };
+  };
+
   return (
     <div className="container">
       <h1>🛒 Formulario de Compra</h1>
 
       <div className="card">
+        {selectedPlan && (
+          <div style={{ 
+            marginBottom: '1.5rem', 
+            padding: '1rem', 
+            backgroundColor: '#e8f5e9', 
+            borderRadius: '8px',
+            border: '1px solid #4caf50'
+          }}>
+            <h3 style={{ margin: '0 0 0.5rem 0' }}>{selectedPlan.name.split('\n')[0].trim()}</h3>
+            <p style={{ margin: '0.25rem 0', color: '#666' }}>
+              <strong>Cobertura:</strong> {selectedPlan.name.split('\n')[1]?.trim() || 'N/A'}
+            </p>
+            <p style={{ margin: '0.25rem 0', color: '#666' }}>
+              <strong>Precio:</strong> {selectedPlan.price}
+            </p>
+          </div>
+        )}
+
         <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <p style={{ margin: 0, color: '#666', fontSize: '0.875rem' }}>
-              URL: <a href={purchaseFormData.url} target="_blank" rel="noopener noreferrer" style={{ color: '#0066cc' }}>
-                {purchaseFormData.url}
-              </a>
+              Complete el formulario para proceder con la compra
             </p>
           </div>
           <button onClick={() => router.push('/results')} style={{ width: 'auto', padding: '0.75rem 1.5rem' }}>
@@ -242,10 +321,9 @@ export default function PurchasePage() {
           </button>
         </div>
 
-        {purchaseFormData.forms.map((form, formIndex) => (
+        {mainForm && (
           <form
-            key={formIndex}
-            onSubmit={(e) => handleSubmit(e, formIndex)}
+            onSubmit={(e) => handleSubmit(e, purchaseFormData.forms.indexOf(mainForm))}
             style={{
               marginBottom: '2rem',
               padding: '1.5rem',
@@ -254,18 +332,68 @@ export default function PurchasePage() {
             }}
           >
             <h2 style={{ marginTop: 0, marginBottom: '1.5rem' }}>
-              Formulario {formIndex + 1}
-              {form.id && <span style={{ fontSize: '0.875rem', color: '#666', fontWeight: 'normal' }}> (ID: {form.id})</span>}
+              Información de Pasajeros y Cobertura
             </h2>
 
-            {form.action && (
-              <p style={{ marginBottom: '1rem', fontSize: '0.875rem', color: '#666' }}>
-                <strong>Action:</strong> {form.action}<br />
-                <strong>Method:</strong> {form.method}
-              </p>
-            )}
+            {/* Render hidden fields first */}
+            {mainForm.fields
+              .filter(f => f.type === 'hidden')
+              .map((field) => renderField(field, 0))}
 
-            {form.fields.map((field) => renderField(field, formIndex))}
+            {/* Group and render passenger fields */}
+            {(() => {
+              const { groups, otherFields } = groupFieldsByPassenger(mainForm.fields.filter(f => f.type !== 'hidden'));
+              
+              return (
+                <>
+                  {/* Passenger sections */}
+                  {Object.entries(groups)
+                    .filter(([key]) => key !== 'contact')
+                    .sort(([a], [b]) => parseInt(a) - parseInt(b))
+                    .map(([passengerIndex, fields]) => (
+                      <div key={passengerIndex} style={{ 
+                        marginBottom: '2rem', 
+                        padding: '1.5rem', 
+                        backgroundColor: 'white', 
+                        borderRadius: '8px',
+                        border: '1px solid #e0e0e0'
+                      }}>
+                        <h3 style={{ marginTop: 0, marginBottom: '1rem', color: '#333' }}>
+                          Pasajero {parseInt(passengerIndex) + 1}
+                        </h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
+                          {fields.map((field) => renderField(field, 0))}
+                        </div>
+                      </div>
+                    ))}
+
+                  {/* Contact information */}
+                  {groups['contact'] && groups['contact'].length > 0 && (
+                    <div style={{ 
+                      marginBottom: '2rem', 
+                      padding: '1.5rem', 
+                      backgroundColor: 'white', 
+                      borderRadius: '8px',
+                      border: '1px solid #e0e0e0'
+                    }}>
+                      <h3 style={{ marginTop: 0, marginBottom: '1rem', color: '#333' }}>
+                        Información de Contacto
+                      </h3>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
+                        {groups['contact'].map((field) => renderField(field, 0))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Other fields */}
+                  {otherFields.length > 0 && (
+                    <div style={{ marginBottom: '2rem' }}>
+                      {otherFields.map((field) => renderField(field, 0))}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
             <button
               type="submit"
@@ -283,10 +411,47 @@ export default function PurchasePage() {
                 fontWeight: 'bold',
               }}
             >
-              {loading ? 'Enviando...' : 'Enviar Formulario'}
+              {loading ? 'Enviando...' : 'Continuar con la Compra'}
             </button>
           </form>
-        ))}
+        )}
+
+        {/* Render other forms (like email forms) */}
+        {purchaseFormData.forms
+          .filter(form => form !== mainForm)
+          .map((form, formIndex) => (
+            <form
+              key={formIndex}
+              onSubmit={(e) => handleSubmit(e, purchaseFormData.forms.indexOf(form))}
+              style={{
+                marginBottom: '2rem',
+                padding: '1.5rem',
+                backgroundColor: '#f9f9f9',
+                borderRadius: '8px',
+              }}
+            >
+              <h3 style={{ marginTop: 0, marginBottom: '1rem' }}>
+                {form.action?.includes('/send') ? 'Enviar Cotización por Email' : `Formulario ${formIndex + 1}`}
+              </h3>
+              {form.fields.map((field) => renderField(field, formIndex))}
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  marginTop: '1rem',
+                  width: '100%',
+                  padding: '0.75rem',
+                  backgroundColor: loading ? '#ccc' : '#0066cc',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: loading ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {loading ? 'Enviando...' : 'Enviar'}
+              </button>
+            </form>
+          ))}
 
         {purchaseFormData.error && (
           <div style={{ padding: '1rem', backgroundColor: '#fee', borderRadius: '8px', marginTop: '1rem' }}>

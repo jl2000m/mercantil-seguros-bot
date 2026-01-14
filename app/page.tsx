@@ -75,7 +75,9 @@ export default function Home() {
   const validateDate = (dateStr: string): boolean => {
     if (!dateStr) return true;
     // dateStr is in YYYY-MM-DD format from the input
-    const selectedDate = new Date(dateStr);
+    // Parse directly to avoid timezone issues
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const selectedDate = new Date(year, month - 1, day);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     selectedDate.setHours(0, 0, 0, 0);
@@ -96,8 +98,11 @@ export default function Home() {
 
     // Validar que la fecha de regreso sea después de la de salida
     if (dateInputs.departureDate && dateInputs.returnDate) {
-      const departure = new Date(dateInputs.departureDate);
-      const returnDate = new Date(dateInputs.returnDate);
+      // Parse dates directly to avoid timezone issues
+      const [depYear, depMonth, depDay] = dateInputs.departureDate.split('-').map(Number);
+      const [retYear, retMonth, retDay] = dateInputs.returnDate.split('-').map(Number);
+      const departure = new Date(depYear, depMonth - 1, depDay);
+      const returnDate = new Date(retYear, retMonth - 1, retDay);
       if (returnDate < departure) {
         setDateError('La fecha de regreso debe ser después de la fecha de salida');
         return;
@@ -126,6 +131,15 @@ export default function Home() {
       
       // Guardar resultado en sessionStorage y navegar a la página de resultados
       sessionStorage.setItem('quoteResult', JSON.stringify(result));
+      // Also store the form data for displaying in the summary
+      sessionStorage.setItem('quoteFormData', JSON.stringify({
+        tripType: tripTypeValue || formData.tripType,
+        origin: formData.origin,
+        destination: formData.destination,
+        departureDate: formData.departureDate,
+        returnDate: formData.returnDate,
+        passengers: formData.passengers,
+      }));
       router.push('/results');
     } catch (error) {
       const errorResult = {
@@ -142,11 +156,9 @@ export default function Home() {
   const formatDate = (dateStr: string) => {
     if (!dateStr) return '';
     // dateStr is in YYYY-MM-DD format from the input
-    const d = new Date(dateStr);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${day}/${month}/${year}`;
+    // Parse directly to avoid timezone issues
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
   };
 
   const handleDateChange = (field: 'departureDate' | 'returnDate', value: string) => {

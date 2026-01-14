@@ -6,7 +6,7 @@ import * as fs from 'fs';
 /**
  * Script to automatically generate a quote, click COMPRAR, and scrape the purchase form
  */
-async function scrapePurchaseForm() {
+async function scrapePurchaseForm(planId: string = 'M-30') {
   const bot = new MercantilSegurosBot();
   
   try {
@@ -14,101 +14,168 @@ async function scrapePurchaseForm() {
     
     await bot.initialize();
     
-    // Generate a quote first
-    const quoteConfig: QuoteConfig = {
-      tripType: 'Anual Multiviaje',
-      origin: 'Albania',
-      destination: 'Mundial',
-      departureDate: '28/01/2026',
-      returnDate: '27/01/2027',
-      passengers: 5,
-      ages: [35, 32, 28, 25, 22],
-      agent: '2851',
-    };
-    
-    console.log('📋 Generando cotización...');
-    console.log('   Configuración:', JSON.stringify(quoteConfig, null, 2));
-    
-    const quoteResult = await bot.generateQuote(quoteConfig);
-    
-    if (!quoteResult.success || !quoteResult.quoteData) {
-      throw new Error(quoteResult.error || 'Error al generar cotización');
+    if (!bot['page']) {
+      throw new Error('Page not initialized');
     }
     
-    console.log('\n✅ Cotización generada exitosamente!');
-    console.log(`   Planes encontrados: ${quoteResult.quoteData.plans?.length || 0}`);
+    const page = bot['page'];
     
-    if (quoteResult.quoteData.plans && quoteResult.quoteData.plans.length > 0) {
-      quoteResult.quoteData.plans.forEach((plan, index) => {
-        console.log(`   ${index + 1}. ${plan.name} - ${plan.price}`);
-      });
+    // Use the provided quote UUID and navigate directly to the purchase form
+    const quoteUuid = 'b91a2eb0822af593be054528d21ca219';
+    const purchaseFormUrl = `https://www1.mercantilseguros.com/as/viajesint/MRP022052/quotation/${quoteUuid}/${planId}/buy/step-one`;
+    
+    console.log(`🌐 Navegando directamente al formulario de compra...`);
+    console.log(`   URL: ${purchaseFormUrl}`);
+    console.log(`   Plan ID: ${planId}`);
+    
+    await page.goto(purchaseFormUrl, { waitUntil: 'load', timeout: 60000 });
+    await page.waitForTimeout(3000); // Wait for page to fully load
+    
+    // Take a screenshot
+    const screenshotDir = path.join(process.cwd(), 'screenshots');
+    if (!fs.existsSync(screenshotDir)) {
+      fs.mkdirSync(screenshotDir, { recursive: true });
     }
+    const screenshotPath = path.join(screenshotDir, `purchase-form-${planId}-${Date.now()}.png`);
+    await page.screenshot({ path: screenshotPath, fullPage: true });
+    console.log(`📸 Screenshot guardado: ${screenshotPath}`);
     
-    // Click COMPRAR on the first plan (index 0)
-    console.log('\n🛒 Haciendo clic en COMPRAR en el primer plan...');
-    const purchaseResult = await bot.clickComprarAndScrapeForm(0);
+    // Get page HTML
+    const html = await page.content();
+    const htmlPath = path.join(screenshotDir, `purchase-form-${planId}-${Date.now()}.html`);
+    fs.writeFileSync(htmlPath, html, 'utf-8');
+    console.log(`📄 HTML guardado: ${htmlPath}`);
     
-    if (!purchaseResult.success || !purchaseResult.purchaseFormData) {
-      throw new Error(purchaseResult.error || 'Error al obtener formulario de compra');
-    }
+    // Extract forms
+    const forms = await page.locator('form').all();
+    console.log(`\n📋 Formularios encontrados: ${forms.length}`);
     
-    console.log('\n✅ Formulario de compra capturado exitosamente!');
-    console.log(`   URL: ${purchaseResult.purchaseFormData.url}`);
-    console.log(`   Formularios encontrados: ${purchaseResult.purchaseFormData.forms.length}`);
-    
-    // Display form details
-    purchaseResult.purchaseFormData.forms.forEach((form, formIndex) => {
-      console.log(`\n📝 Formulario ${formIndex + 1}:`);
-      console.log(`   ID: ${form.id || 'sin ID'}`);
-      console.log(`   Action: ${form.action || 'sin action'}`);
-      console.log(`   Method: ${form.method}`);
-      console.log(`   Campos: ${form.fields.length}`);
+    const purchaseForms = [];
+    for (let i = 0; i < forms.length; i++) {
+      const form = forms[i];
+      const formId = await form.getAttribute('id');
+      const formAction = await form.getAttribute('action');
+      const formMethod = await form.getAttribute('method') || 'GET';
       
-      console.log('\n   Campos del formulario:');
-      form.fields.forEach((field, fieldIndex) => {
-        console.log(`   ${fieldIndex + 1}. ${field.tag.toUpperCase()} - ${field.name || field.id || 'sin nombre'}`);
-        if (field.label) console.log(`      Label: ${field.label}`);
-        if (field.type) console.log(`      Tipo: ${field.type}`);
-        if (field.placeholder) console.log(`      Placeholder: ${field.placeholder}`);
-        if (field.required) console.log(`      Requerido: Sí`);
-        if (field.options && field.options.length > 0) {
-          console.log(`      Opciones: ${field.options.length}`);
-          field.options.slice(0, 5).forEach((opt, optIdx) => {
-            console.log(`         ${optIdx + 1}. ${opt.text} (${opt.value})`);
+      console.log(`\n📝 Formulario ${i + 1}:`);
+      console.log(`   ID: ${formId || 'sin ID'}`);
+      console.log(`   Action: ${formAction || 'sin action'}`);
+      console.log(`   Method: ${formMethod}`);
+      
+      // Extract all input fields
+      const inputs = await form.locator('input, select, textarea').all();
+      const fields = [];
+      
+      for (const input of inputs) {
+        const tagName = await input.evaluate((el) => el.tagName.toLowerCase());
+        const type = await input.getAttribute('type');
+        const name = await input.getAttribute('name');
+        const id = await input.getAttribute('id');
+        const placeholder = await input.getAttribute('placeholder');
+        const required = await input.evaluate((el) => (el as HTMLInputElement).required);
+        const value = await input.getAttribute('value') || await input.inputValue().catch(() => null);
+        
+        // Try to find label
+        let label: string | null = null;
+        try {
+          const labelElement = await input.evaluateHandle((el) => {
+            const id = el.id;
+            if (id) {
+              const label = document.querySelector(`label[for="${id}"]`);
+              if (label) return label;
+            }
+            if (el.parentElement?.tagName === 'LABEL') {
+              return el.parentElement;
+            }
+            if (el.previousElementSibling?.tagName === 'LABEL') {
+              return el.previousElementSibling;
+            }
+            return null;
           });
-          if (field.options.length > 5) {
-            console.log(`         ... y ${field.options.length - 5} más`);
+          
+          if (labelElement) {
+            const labelText = await labelElement.evaluate((el) => el.textContent?.trim() || null);
+            label = labelText;
+          }
+        } catch (error) {
+          // Label not found, continue
+        }
+        
+        // Get options for select elements
+        let options: Array<{ value: string; text: string }> | null = null;
+        if (tagName === 'select') {
+          const optionElements = await input.locator('option').all();
+          options = [];
+          for (const option of optionElements) {
+            const optionValue = await option.getAttribute('value');
+            const optionText = await option.textContent();
+            if (optionValue !== null && optionText) {
+              options.push({
+                value: optionValue,
+                text: optionText.trim(),
+              });
+            }
           }
         }
+        
+        fields.push({
+          tag: tagName,
+          type: type || null,
+          name: name || null,
+          id: id || null,
+          placeholder: placeholder || null,
+          label: label,
+          required: required,
+          value: value,
+          options: options,
+        });
+      }
+      
+      console.log(`   Campos: ${fields.length}`);
+      fields.forEach((field, idx) => {
+        console.log(`   ${idx + 1}. ${field.tag.toUpperCase()} - ${field.name || field.id || 'sin nombre'}`);
+        if (field.label) console.log(`      Label: ${field.label}`);
+        if (field.type) console.log(`      Tipo: ${field.type}`);
+        if (field.required) console.log(`      Requerido: Sí`);
       });
-    });
+      
+      purchaseForms.push({
+        index: i,
+        id: formId,
+        action: formAction,
+        method: formMethod,
+        fields: fields,
+      });
+    }
     
-    // Save the purchase form data to a file
+    const purchaseFormData = {
+      url: purchaseFormUrl,
+      html: html,
+      forms: purchaseForms,
+    };
+    
+    // Save the purchase form data
     const dataDir = path.join(process.cwd(), 'data');
     if (!fs.existsSync(dataDir)) {
       fs.mkdirSync(dataDir, { recursive: true });
     }
     
-    const purchaseFormPath = path.join(dataDir, `purchase-form-${Date.now()}.json`);
+    const purchaseFormPath = path.join(dataDir, `purchase-form-${planId}-${Date.now()}.json`);
     fs.writeFileSync(
       purchaseFormPath,
-      JSON.stringify(purchaseResult.purchaseFormData, null, 2),
+      JSON.stringify(purchaseFormData, null, 2),
       'utf-8'
     );
     
     console.log(`\n💾 Datos del formulario guardados en: ${purchaseFormPath}`);
     
-    // Also save a simplified HTML version for inspection
-    const htmlPath = path.join(dataDir, `purchase-form-${Date.now()}.html`);
-    fs.writeFileSync(htmlPath, purchaseResult.purchaseFormData.html, 'utf-8');
-    console.log(`📄 HTML guardado en: ${htmlPath}`);
-    
     // Save a summary
     const summary = {
       timestamp: new Date().toISOString(),
-      url: purchaseResult.purchaseFormData.url,
-      formsCount: purchaseResult.purchaseFormData.forms.length,
-      forms: purchaseResult.purchaseFormData.forms.map(form => ({
+      planId: planId,
+      url: purchaseFormUrl,
+      formsCount: purchaseForms.length,
+      forms: purchaseForms.map(form => ({
         id: form.id,
         action: form.action,
         method: form.method,
@@ -126,7 +193,7 @@ async function scrapePurchaseForm() {
       })),
     };
     
-    const summaryPath = path.join(dataDir, `purchase-form-summary-${Date.now()}.json`);
+    const summaryPath = path.join(dataDir, `purchase-form-summary-${planId}-${Date.now()}.json`);
     fs.writeFileSync(
       summaryPath,
       JSON.stringify(summary, null, 2),
@@ -136,7 +203,12 @@ async function scrapePurchaseForm() {
     
     console.log('\n✅ Script completado exitosamente!');
     
-    return purchaseResult;
+    return {
+      success: true,
+      purchaseFormData,
+      screenshotPath: screenshotPath,
+      htmlPath: htmlPath,
+    };
   } catch (error) {
     console.error('\n❌ Error en el script:', error);
     throw error;
@@ -147,7 +219,16 @@ async function scrapePurchaseForm() {
 
 // Run the script
 if (require.main === module) {
-  scrapePurchaseForm()
+  // Get plan ID from command line args or use default
+  const planId = process.argv[2] || 'M-30';
+  
+  console.log(`📋 Plan seleccionado: ${planId}`);
+  console.log('   M-30 = Access 30');
+  console.log('   M-50 = Premium 50');
+  console.log('   M-75 = Premium 75');
+  console.log('   M-100 = Elite 100\n');
+  
+  scrapePurchaseForm(planId)
     .then(() => {
       console.log('\n🎉 Proceso finalizado');
       process.exit(0);

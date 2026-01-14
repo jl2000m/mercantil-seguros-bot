@@ -127,19 +127,43 @@ class MercantilSegurosBot {
       // Fill in Date Range
       console.log(`📝 Setting date range: ${config.departureDate} - ${config.returnDate}`);
       const dateRangeInput = this.page.locator(SELECTORS.dateRange);
+      
+      // Click to focus the input
       await dateRangeInput.click();
+      await this.page.waitForTimeout(100);
+      
+      // Clear any existing value by selecting all and deleting
+      // Use triple-click which works consistently across platforms
+      await dateRangeInput.click({ clickCount: 3 });
+      await this.page.waitForTimeout(50);
+      await this.page.keyboard.press('Backspace');
+      await this.page.waitForTimeout(100);
+      
+      // Type the date range character by character to simulate real user input
+      // This is more reliable than setting the value directly, as the date picker
+      // library needs to parse the input as it's being typed
+      const dateRangeValue = `${config.departureDate} - ${config.returnDate}`;
+      await dateRangeInput.type(dateRangeValue, { delay: 30 });
       await this.page.waitForTimeout(300);
       
-      // Clear and set the date range
-      await dateRangeInput.fill(`${config.departureDate} - ${config.returnDate}`);
-      await this.page.waitForTimeout(500);
+      // Blur the input to trigger any validation
+      await this.page.keyboard.press('Tab');
+      await this.page.waitForTimeout(200);
       
-      // Close calendar if it's open by clicking outside or pressing Escape
+      // Close calendar if it's open
       try {
         await this.page.keyboard.press('Escape');
-        await this.page.waitForTimeout(200);
+        await this.page.waitForTimeout(100);
       } catch (error) {
         // Calendar might not be open, continue
+      }
+      
+      // Verify the date was set correctly
+      const actualValue = await dateRangeInput.inputValue();
+      if (actualValue !== dateRangeValue) {
+        console.warn(`⚠️ Warning: Date range mismatch. Expected "${dateRangeValue}" but got "${actualValue}"`);
+      } else {
+        console.log(`✅ Date range set correctly: "${actualValue}"`);
       }
 
       // Set Passenger Count

@@ -4,16 +4,30 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { QuoteResult, QuotePlan } from '../../src/types';
 
+interface QuoteFormData {
+  tripType: string;
+  origin: string;
+  destination: string;
+  departureDate: string;
+  returnDate: string;
+  passengers: number;
+}
+
 export default function ResultsPage() {
   const router = useRouter();
   const [quoteResult, setQuoteResult] = useState<QuoteResult | null>(null);
+  const [quoteFormData, setQuoteFormData] = useState<QuoteFormData | null>(null);
   const [loadingPurchase, setLoadingPurchase] = useState<number | null>(null);
 
   useEffect(() => {
     const stored = sessionStorage.getItem('quoteResult');
+    const storedFormData = sessionStorage.getItem('quoteFormData');
     if (stored) {
       try {
         setQuoteResult(JSON.parse(stored));
+        if (storedFormData) {
+          setQuoteFormData(JSON.parse(storedFormData));
+        }
       } catch (error) {
         console.error('Error al parsear resultado:', error);
         router.push('/');
@@ -28,23 +42,30 @@ export default function ResultsPage() {
     router.push('/');
   };
 
-  const handleComprar = async (planIndex: number) => {
+  const handleComprar = async (plan: QuotePlan, planIndex: number) => {
     setLoadingPurchase(planIndex);
     
     try {
-      // Get the quote config from sessionStorage if available
+      // Get the quote result to extract the quote URL
       const storedQuote = sessionStorage.getItem('quoteResult');
-      const quoteConfig = storedQuote ? JSON.parse(storedQuote) : null;
+      const quoteResult = storedQuote ? JSON.parse(storedQuote) : null;
+      
+      if (!quoteResult?.quoteData?.url) {
+        alert('Error: No se encontró la URL de la cotización');
+        return;
+      }
+      
+      if (!plan.planId) {
+        alert('Error: No se encontró el ID del plan');
+        return;
+      }
       
       const response = await fetch('/api/purchase-form', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          planIndex,
-          quoteConfig: quoteConfig?.quoteData ? {
-            // We need to reconstruct the config from the quote result
-            // For now, we'll let the API handle it
-          } : null,
+          planId: plan.planId,
+          quoteUrl: quoteResult.quoteData.url,
         }),
       });
 
@@ -53,6 +74,7 @@ export default function ResultsPage() {
       if (result.success && result.purchaseFormData) {
         // Store purchase form data and navigate to purchase page
         sessionStorage.setItem('purchaseFormData', JSON.stringify(result.purchaseFormData));
+        sessionStorage.setItem('selectedPlan', JSON.stringify(plan));
         sessionStorage.setItem('selectedPlanIndex', planIndex.toString());
         router.push('/purchase');
       } else {
@@ -91,6 +113,37 @@ export default function ResultsPage() {
                     Nueva Cotización
                   </button>
                 </div>
+                
+                {/* Summary Cards */}
+                {quoteFormData && (
+                  <div className="summary-cards">
+                    <div className="summary-card">
+                      <div className="summary-label">Tipo de Plan</div>
+                      <div className="summary-value">{quoteFormData.tripType}</div>
+                    </div>
+                    <div className="summary-card">
+                      <div className="summary-label">Pasajeros</div>
+                      <div className="summary-value">{quoteFormData.passengers}</div>
+                    </div>
+                    <div className="summary-card">
+                      <div className="summary-label">Origen</div>
+                      <div className="summary-value">{quoteFormData.origin}</div>
+                    </div>
+                    <div className="summary-card">
+                      <div className="summary-label">Destino</div>
+                      <div className="summary-value">{quoteFormData.destination}</div>
+                    </div>
+                    <div className="summary-card">
+                      <div className="summary-label">Inicio</div>
+                      <div className="summary-value">{quoteFormData.departureDate}</div>
+                    </div>
+                    <div className="summary-card">
+                      <div className="summary-label">Fin</div>
+                      <div className="summary-value">{quoteFormData.returnDate}</div>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="quotes-grid">
                   {quoteResult.quoteData.plans.map((plan: QuotePlan, index: number) => (
                     <div key={index} className="quote-card">
@@ -101,7 +154,7 @@ export default function ResultsPage() {
                         ID del Plan: {plan.planId}
                       </div>
                       <button
-                        onClick={() => handleComprar(index)}
+                        onClick={() => handleComprar(plan, index)}
                         disabled={loadingPurchase === index}
                         style={{
                           marginTop: '1rem',
